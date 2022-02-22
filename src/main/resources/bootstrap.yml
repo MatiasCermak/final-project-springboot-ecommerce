@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: ecommerce-v1
+  cloud:
+    config:
+      uri: http://localhost:9000
+  profiles:
+    active: dev
+    
+management:
+  endpoints:
+    web:
+      exposure:
+        include: refresh
