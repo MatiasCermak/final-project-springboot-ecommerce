@@ -16,6 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Objects;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -27,23 +29,26 @@ public class UserServiceImpl implements UserService {
     private final CacheClientImpl<User> cacheUser;
     private final CacheClientImpl<String> cacheToken;
     private final EmailService emailService;
+
     @Override
     public UserResponse login(UserRequest request) {
 
-        User user = getByUsernameFromCacheOrDB(request.getUsername());
+        if (request.getEmail() == null || Objects.equals(request.getEmail(), ""))
+            throw new BadRequestException("Email no existe o no es valido");
+        User user = getByEmailFromCacheOrDB(request.getEmail());
 
         if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
 
         }
-        UserResponse userResponseCandidateFromCache = getTokenFromCache(request.getUsername());
-        if(userResponseCandidateFromCache != null) return userResponseCandidateFromCache;
+        UserResponse userResponseCandidateFromCache = getTokenFromCache(user.getUsername());
+        if (userResponseCandidateFromCache != null) return userResponseCandidateFromCache;
         String token = jwtProvider.getJWTToken(request.getUsername());
-        saveTokenToCache(request.getUsername(), token);
-        return UserResponse.builder().username(request.getUsername()).token(token).build();
+        saveTokenToCache(user.getUsername(), token);
+        return UserResponse.builder().username(user.getUsername()).token(token).build();
     }
 
     @Override
-    public UserResponse register(UserRequest request){
+    public UserResponse register(UserRequest request) {
         validateUser(request);
         request.setPassword(passwordEncoder.encode(request.getPassword()));
         UserBuilder.requestToDocument(request);
@@ -55,34 +60,35 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserResponse retrieveByUsername(String username) {
-        return UserBuilder.documentToResponse(getByUsernameFromCacheOrDB(username));
+        return UserBuilder.documentToResponse(getByEmailFromCacheOrDB(username));
     }
 
-    private UserResponse getTokenFromCache(String username){
+    private UserResponse getTokenFromCache(String username) {
         String candidateToken = cacheToken.recover(Constants.USER_TOKEN_KEY, username, String.class);
-        if(candidateToken == null) return null;
+        if (candidateToken == null) return null;
         return UserResponse.builder().username(username).token(candidateToken).build();
     }
 
-    private void saveTokenToCache(String username, String token){
+    private void saveTokenToCache(String username, String token) {
         cacheToken.save(Constants.USER_TOKEN_KEY, username, token);
     }
 
-    private User getByUsernameFromCacheOrDB(String username) {
-        User userFromCache = cacheUser.recover(Constants.USER_KEY, username, User.class);
-        if(userFromCache != null) return userFromCache;
-        User userFromDB = repository.findByUsername(username).orElse(null);
+    private User getByEmailFromCacheOrDB(String email) {
+        User userFromCache = cacheUser.recover(Constants.USER_KEY, email, User.class);
+        if (userFromCache != null) return userFromCache;
+        User userFromDB = repository.findByEmail(email).orElse(null);
         return userFromDB;
     }
 
-    void validateUser(UserRequest request){
-        User user = getByUsernameFromCacheOrDB(request.getUsername());
-        if (user != null) {
-            throw new BadRequestException("El usuario ya esta en uso.");
-        }
-        user = repository.findByEmail(request.getEmail());
+    void validateUser(UserRequest request) {
+        User user = getByEmailFromCacheOrDB(request.getUsername());
         if (user != null) {
             throw new BadRequestException("El email ya esta en uso.");
+
+        }
+        user = repository.findByUsername(request.getUsername()).orElse(null);
+        if (user != null) {
+            throw new BadRequestException("El usuario ya esta en uso.");
         }
     }
 
