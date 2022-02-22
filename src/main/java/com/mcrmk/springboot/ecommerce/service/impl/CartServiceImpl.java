@@ -5,7 +5,6 @@ import com.mcrmk.springboot.ecommerce.cache.impl.CacheClientImpl;
 import com.mcrmk.springboot.ecommerce.exception.EntityNotFoundException;
 import com.mcrmk.springboot.ecommerce.model.database.document.Cart;
 import com.mcrmk.springboot.ecommerce.model.database.document.Product;
-import com.mcrmk.springboot.ecommerce.model.database.document.User;
 import com.mcrmk.springboot.ecommerce.model.database.document.common.CartDetail;
 import com.mcrmk.springboot.ecommerce.model.response.CartDetailResponse;
 import com.mcrmk.springboot.ecommerce.model.response.CartResponse;
@@ -123,7 +122,7 @@ public class CartServiceImpl implements CartService {
         Cart savedCart = repository.save(cart);
         cache.save(Constants.CART_KEY, savedCart.getId(), savedCart);
         return savedCart;
-    };
+    }
 
     private Cart getFromCacheOrDBOrCreate(UserResponse user){
         Cart cartFromCache = cache.recover(Constants.CART_KEY, user.getId(), Cart.class);

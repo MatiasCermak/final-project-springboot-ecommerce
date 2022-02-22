@@ -1,29 +1,53 @@
 package com.mcrmk.springboot.ecommerce.advice;
 
+import com.mcrmk.springboot.ecommerce.exception.AuthenticationException;
+import com.mcrmk.springboot.ecommerce.model.response.UserResponse;
+import com.mcrmk.springboot.ecommerce.service.UserService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.JoinPoint;
-import org.aspectj.lang.annotation.After;
-import org.aspectj.lang.annotation.AfterThrowing;
-import org.aspectj.lang.annotation.Aspect;
-import org.aspectj.lang.annotation.Pointcut;
+import org.aspectj.lang.annotation.*;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Aspect
 @Component
+@RequiredArgsConstructor
 public class GeneralAdvice {
 
-    @Pointcut("execution(* com.mcrmk.springboot.ecommerce.controller.*.*(..))")
-    void controllerMethodsIntercept(){};
+    private UserService userService;
 
-    @After("controllerMethodsIntercept()")
-    void afterControllerMethodIntercept(JoinPoint jp){
-        log.info("Executed " + jp.getSignature().getName() + "().");
+    @Pointcut("execution(* com.mcrmk.springboot.ecommerce.controller.*.*(..))")
+    void controllerMethodsIntercept() {
     }
 
-    @AfterThrowing("controllerMethodsIntercept()")
-    void afterThrowingControllerMethodIntercept(JoinPoint jp){
-        log.error("Exception captured while executing " + jp.getSignature().getName() + "().");
+    @Pointcut("@annotation(com.mcrmk.springboot.ecommerce.annotation.AdminPermission)")
+    void adminPermission() {
+    }
+
+    ;
+
+
+    @After("controllerMethodsIntercept()")
+    void afterControllerMethodIntercept(JoinPoint jp) {
+        log.info("Executed " + jp.getSignature().getDeclaringTypeName() + "." + jp.getSignature().getName() + "()");
+    }
+
+    @AfterThrowing(pointcut = "controllerMethodsIntercept()", throwing = "e")
+    void afterThrowingControllerMethodIntercept(JoinPoint jp, Exception e) {
+        log.error("Exception with message: " + e.getMessage() + " captured while executing " + jp.getSignature().getName() + "().");
+    }
+
+    @Before("adminPermission()")
+    void adminPermissionFilter() {
+        try {
+            String username = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
+            UserResponse user = userService.retrieveByUsername(username);
+            if (user.getIsAdmin()) throw new AuthenticationException("The user is not an admin");
+        } catch (NullPointerException ex) {
+            throw new AuthenticationException("The user is not an admin");
+        }
     }
 
 }

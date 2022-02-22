@@ -1,10 +1,11 @@
 package com.mcrmk.springboot.ecommerce.service.impl;
 
 import com.mcrmk.springboot.ecommerce.builder.OrderBuilder;
-import com.mcrmk.springboot.ecommerce.cache.impl.CacheClientImpl;
+import com.mcrmk.springboot.ecommerce.exception.BadRequestException;
 import com.mcrmk.springboot.ecommerce.exception.EntityNotFoundException;
 import com.mcrmk.springboot.ecommerce.mail.EmailService;
 import com.mcrmk.springboot.ecommerce.model.database.document.Order;
+import com.mcrmk.springboot.ecommerce.model.database.document.Product;
 import com.mcrmk.springboot.ecommerce.model.database.document.common.CartDetail;
 import com.mcrmk.springboot.ecommerce.model.request.OrderRequest;
 import com.mcrmk.springboot.ecommerce.model.response.CartDetailResponse;
@@ -37,6 +38,9 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public OrderResponse create(OrderRequest orderRequest) {
+        if (orderRequest.getOrderDetails() == null || orderRequest.getOrderDetails().isEmpty()) {
+            throw new BadRequestException("The order detail list should have at least one element");
+        }
         UserResponse user = getUser();
         Order order = Order.builder()
                 .address(orderRequest.getAddress())
@@ -49,10 +53,12 @@ public class OrderServiceImpl implements OrderService {
         orderRequest.getOrderDetails().forEach(item -> {
             try {
                 ProductResponse productResponse = productService.retrieve(item.getProductId());
-                if (!productResponse.getIsActive()) ;
+                if (!productResponse.getIsActive())
+                    throw new EntityNotFoundException(Product.class.getSimpleName(), productResponse.getId());
                 Integer quantity = 0;
                 if (productResponse.getStock() < item.getQuantity()) {
-                    if (orderRequest.getErrorOnLowStock()) ;
+                    if (orderRequest.getErrorOnLowStock())
+                        throw new BadRequestException("One of the items in the order list has more quantity that the amount that is available.");
                     quantity = productResponse.getStock();
 
                 } else {

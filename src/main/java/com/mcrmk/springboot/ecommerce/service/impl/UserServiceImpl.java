@@ -2,6 +2,7 @@ package com.mcrmk.springboot.ecommerce.service.impl;
 
 import com.mcrmk.springboot.ecommerce.builder.UserBuilder;
 import com.mcrmk.springboot.ecommerce.cache.impl.CacheClientImpl;
+import com.mcrmk.springboot.ecommerce.exception.AuthenticationException;
 import com.mcrmk.springboot.ecommerce.exception.BadRequestException;
 import com.mcrmk.springboot.ecommerce.mail.EmailService;
 import com.mcrmk.springboot.ecommerce.model.database.document.User;
@@ -35,14 +36,16 @@ public class UserServiceImpl implements UserService {
 
         if (request.getEmail() == null || Objects.equals(request.getEmail(), ""))
             throw new BadRequestException("Email no existe o no es valido");
+
         User user = getByEmailFromCacheOrDB(request.getEmail());
 
         if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-
+            throw new AuthenticationException("The user or password is incorrect.");
         }
+
         UserResponse userResponseCandidateFromCache = getTokenFromCache(user.getUsername());
         if (userResponseCandidateFromCache != null) return userResponseCandidateFromCache;
-        String token = jwtProvider.getJWTToken(request.getUsername());
+        String token = jwtProvider.getJWTToken(user.getUsername());
         saveTokenToCache(user.getUsername(), token);
         return UserResponse.builder().username(user.getUsername()).token(token).build();
     }
@@ -53,6 +56,7 @@ public class UserServiceImpl implements UserService {
         request.setPassword(passwordEncoder.encode(request.getPassword()));
         UserBuilder.requestToDocument(request);
         User user = repository.save(UserBuilder.requestToDocument(request));
+        cacheUser.save(Constants.USER_KEY, request.getEmail(), user);
         emailService.sendSimpleMessage(user.getEmail(), "Bienvenido, " + user.getFirstName(), "Tu cuenta ha sido creada correctamente.");
         return UserBuilder.documentToResponse(user);
 
@@ -60,7 +64,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserResponse retrieveByUsername(String username) {
-        return UserBuilder.documentToResponse(getByEmailFromCacheOrDB(username));
+        return UserBuilder.documentToResponse(repository.findByUsername(username).orElse(null));
     }
 
     private UserResponse getTokenFromCache(String username) {

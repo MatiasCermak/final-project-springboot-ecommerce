@@ -1,5 +1,6 @@
 package com.mcrmk.springboot.ecommerce.controller;
 
+import com.mcrmk.springboot.ecommerce.annotation.AdminPermission;
 import com.mcrmk.springboot.ecommerce.model.request.ProductRequest;
 import com.mcrmk.springboot.ecommerce.model.response.ProductResponse;
 import com.mcrmk.springboot.ecommerce.service.ProductService;
@@ -17,6 +18,7 @@ public class ProductController {
 
     private final ProductService service;
 
+    @AdminPermission
     @PostMapping("")
     public ProductResponse create(@RequestBody ProductRequest productRequest){
         return service.create(productRequest);
@@ -32,11 +34,13 @@ public class ProductController {
         return service.list();
     }
 
+    @AdminPermission
     @PutMapping("/{id}")
     public ProductResponse update(@RequestBody ProductRequest productRequest, @PathVariable String id){
         return service.update(productRequest, id);
     }
 
+    @AdminPermission
     @DeleteMapping("/{id}")
     public ProductResponse delete(@PathVariable String id){
         return service.delete(id);
